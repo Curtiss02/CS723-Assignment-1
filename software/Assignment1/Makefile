@@ -151,6 +151,7 @@ C_SRCS += FreeRTOS/queue.c
 C_SRCS += FreeRTOS/tasks.c
 C_SRCS += FreeRTOS/timers.c
 C_SRCS += freertos_semaphore.c
+C_SRCS += main.c
 CXX_SRCS :=
 ASM_SRCS := FreeRTOS/port_asm.S
 

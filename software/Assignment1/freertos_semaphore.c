@@ -1,3 +1,4 @@
+/*
 // Standard includes
 #include <stddef.h>
 #include <stdio.h>
@@ -219,3 +220,4 @@ int initCreateTasks(void)
 
 	return 0;
 }
+*/
