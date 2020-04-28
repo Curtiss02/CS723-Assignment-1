@@ -39,7 +39,8 @@
 
 xSemaphoreHandle x;
 
-
+//Definition of Queues
+static QueueHandle_t Q_freq_data;
 
 
 // globals variables
@@ -47,10 +48,18 @@ volatile unsigned int maintenance_mode = 0;
 
 unsigned int switch_val;
 unsigned int load_state = 0;
+float f_vals[FREQ_ARR_SIZE] = {0};
+float df_vals[FREQ_ARR_SIZE] = {0};
 
 
 
+void freq_relay(){
+	#define SAMPLING_FREQ 16000.0
+	float hz= SAMPLING_FREQ/(float)IORD(FREQUENCY_ANALYSER_BASE, 0);
 
+	xQueueSendToBackFromISR( Q_freq_data, &hz, pdFALSE );
+
+}
 
 void maintenance_mode_button_isr(void* context, alt_u32 id){
 	  int keyval = IORD_ALTERA_AVALON_PIO_EDGE_CAP(PUSH_BUTTON_BASE) & 0x4;
@@ -83,15 +92,40 @@ void check_switch_task(void *pvParameters){
 	}
 }
 void update_screen_task(void *pvParameters){
-	unsigned int test_values[FREQ_ARR_SIZE] = {0};
+	int data_arr_pos = 0;
 	unsigned int z = 0;
 	while(1){
 		//Testing
-		addNewReading(test_values, rand() % 70);
+		while(uxQueueMessagesWaiting( Q_freq_data ) != 0){
+			xQueueReceive( Q_freq_data, f_vals+data_arr_pos, 0 );
+
+
+			float denominator;
+			if(data_arr_pos==0){
+				denominator = (f_vals[0]+f_vals[99]);
+				if(denominator == 0){
+					df_vals[0] = 0;
+				}
+				else{
+					df_vals[0] = (f_vals[0]-f_vals[99]) * 2.0 * f_vals[0] * f_vals[99] / denominator;
+				}
+
+			}
+			else{
+				denominator = (f_vals[data_arr_pos]+f_vals[data_arr_pos-1]);
+				if(denominator == 0){
+					df_vals[0] = 0;
+				}else{
+					df_vals[data_arr_pos] = (f_vals[data_arr_pos]-f_vals[data_arr_pos-1]) * 2.0 * f_vals[data_arr_pos]* f_vals[data_arr_pos-1] / denominator;
+				}
+
+			}
+			data_arr_pos = (data_arr_pos + 1) % FREQ_ARR_SIZE;
+		}
 		drawSystemUptime(xTaskGetTickCount()/1000);
 
-		drawFrequencyGraph(test_values, FREQ_ARR_SIZE);
-		vTaskDelay(200);
+		drawGraphs(f_vals, df_vals, data_arr_pos);
+		vTaskDelay(16);
 	}
 }
 void set_led_task(void *pvParameters){
@@ -109,21 +143,14 @@ void set_led_task(void *pvParameters){
 }
 
 
-void addNewReading(unsigned int * freq_list, unsigned int new_freq)
-{
-	int i;
-	for(i = 0; i < FREQ_ARR_SIZE-1; i++){
-		freq_list[i] = freq_list[i+1];
-	}
 
-	freq_list[FREQ_ARR_SIZE-1] = new_freq;
-
-}
 
 
 void initOSDataStructs(){
 	//Only care about first 5 bits/loads
 	switch_val = IORD_ALTERA_AVALON_PIO_DATA(SLIDE_SWITCH_BASE) & 0x1F;
+	Q_freq_data = xQueueCreate(100, sizeof(float));
+
 
 }
 void initCreateTasks(){
@@ -135,6 +162,7 @@ void initCreateTasks(){
 
 void initISRs(){
 	register_button_isr();
+	alt_irq_register(FREQUENCY_ANALYSER_IRQ, 0, freq_relay);
 }
 
 

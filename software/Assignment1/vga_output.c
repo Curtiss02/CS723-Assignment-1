@@ -5,17 +5,30 @@ alt_up_pixel_buffer_dma_dev *pixel_buf;
 alt_up_char_buffer_dev *char_buf;
 char uptimeString[15];
 
-
+//Contants for frequency graph
 #define FREQ_GRAPH_HEIGHT 140
 #define FREQ_GRAPH_WIDTH 500
 #define FREQ_GRAPH_X 75
 #define FREQ_GRAPH_Y 50
-#define MAX_GRAPH_FREQ 69
-#define MIN_GRAPH_FREQ 1
-unsigned char TEST = 'a';
+#define FREQ_GRAPH_Y_RES 7
+#define MAX_GRAPH_FREQ 60
+#define MIN_GRAPH_FREQ 40
 
 
-unsigned int calculateFreqYpos(unsigned int freqval);
+//Constants for ROC graph
+#define ROC_GRAPH_HEIGHT 140
+#define ROC_GRAPH_WIDTH 500
+#define ROC_GRAPH_X 75
+#define ROC_GRAPH_Y 210
+#define ROC_GRAPH_Y_RES 7
+#define ROC_GRAPH_MAX 10
+#define ROC_GRAPH_MIN -10
+
+
+
+
+
+int calculateFreqYpos(float freqval);
 
 
 void initVGA(){
@@ -45,13 +58,17 @@ void drawBackground(){
 	alt_up_pixel_buffer_dma_draw_rectangle(pixel_buf, FREQ_GRAPH_X, FREQ_GRAPH_Y, FREQ_GRAPH_X+FREQ_GRAPH_WIDTH, FREQ_GRAPH_Y+FREQ_GRAPH_HEIGHT, 0xFF, 0);
 	alt_up_char_buffer_string(char_buf, "FREQ (HZ)", FREQ_GRAPH_X/8+1, (FREQ_GRAPH_Y/8)-1 );
 
+	//ROC Graph
+	alt_up_pixel_buffer_dma_draw_rectangle(pixel_buf, ROC_GRAPH_X, ROC_GRAPH_Y, ROC_GRAPH_X+ROC_GRAPH_WIDTH, ROC_GRAPH_Y+ROC_GRAPH_HEIGHT, 0xFF, 0);
+	alt_up_char_buffer_string(char_buf, "Rate of Change (HZ/s)", ROC_GRAPH_X/8+1, (ROC_GRAPH_Y/8)-1 );
+
 	//Hz Markers on Freq graph
 	char buffer[5];
 	int i;
-	for(i = 0; i < 7; i++){
-		int yPos = calculateFreqYpos(i*10);
+	for(i = 60; i >= 40; i-=5){
+		int yPos = calculateFreqYpos(i);
 		alt_up_pixel_buffer_dma_draw_hline(pixel_buf, FREQ_GRAPH_X - 10, FREQ_GRAPH_X, yPos, 0xFF, 0);
-		sprintf(buffer, "%d", i*10);
+		sprintf(buffer, "%d", i);
 		alt_up_char_buffer_string(char_buf, buffer, FREQ_GRAPH_X/8 - 4, yPos/8 );
 	}
 
@@ -59,39 +76,80 @@ void drawBackground(){
 
 
 }
-unsigned int calculateFreqYpos(unsigned int freqval){
+int calculateFreqYpos(float freqval){
 	//Take Freq value, x2, subract from y + height
 
-
-	return (FREQ_GRAPH_Y+FREQ_GRAPH_HEIGHT)-(freqval*(FREQ_GRAPH_HEIGHT /(MAX_GRAPH_FREQ - MIN_GRAPH_FREQ)));
+	//Boundary Checks
+	if(freqval > MAX_GRAPH_FREQ){
+		freqval = MAX_GRAPH_FREQ;
+	}
+	else if(freqval < MIN_GRAPH_FREQ){
+		freqval = MIN_GRAPH_FREQ;
+	}
+	return (int)(FREQ_GRAPH_Y+FREQ_GRAPH_HEIGHT)-((freqval-MIN_GRAPH_FREQ)*FREQ_GRAPH_Y_RES);
+}
+int calculateROCYpos(float roc_val){
+	if(roc_val > ROC_GRAPH_MAX){
+		roc_val = ROC_GRAPH_MAX;
+	}
+	else if(roc_val < ROC_GRAPH_MIN){
+		roc_val = ROC_GRAPH_MIN;
+	}
+	return (int)(ROC_GRAPH_Y+ROC_GRAPH_HEIGHT)-((roc_val-ROC_GRAPH_MIN)*ROC_GRAPH_Y_RES);
 }
 
-void drawFrequencyGraph(unsigned int* freq_list, int length){
+
+#define INTERPOLATE 1
+
+void drawGraphs(float* freq_list, float* roc_list, int start_pos){
 
 	//Clear graph area
 	alt_up_pixel_buffer_dma_draw_box(pixel_buf, FREQ_GRAPH_X+1, FREQ_GRAPH_Y+1, FREQ_GRAPH_X+FREQ_GRAPH_WIDTH-1, FREQ_GRAPH_Y+FREQ_GRAPH_HEIGHT-1 ,0,0);
+	alt_up_pixel_buffer_dma_draw_box(pixel_buf, ROC_GRAPH_X+1, ROC_GRAPH_Y+1, ROC_GRAPH_X+ROC_GRAPH_WIDTH-1, ROC_GRAPH_Y+ROC_GRAPH_HEIGHT-1 ,0,0);
 
-	unsigned int xPos = FREQ_GRAPH_X;
-	unsigned int xStep = FREQ_GRAPH_WIDTH/length;
+	int xPos = FREQ_GRAPH_X;
+	int xStep = FREQ_GRAPH_WIDTH/FREQ_ARR_SIZE;
 	int i;
-	for(i = 0; i < length; i++){
-		unsigned int current_freq = freq_list[i];
 
-		//Boundary Checks
-		if(current_freq > MAX_GRAPH_FREQ){
-			current_freq = MAX_GRAPH_FREQ;
+	for(i = 0; i < FREQ_ARR_SIZE-1; i++){
+		if(INTERPOLATE == 1)
+		{
+			int yPos1 = calculateFreqYpos(freq_list[(i+start_pos)%FREQ_ARR_SIZE]);
+			int yPos2 = calculateFreqYpos(freq_list[(i+start_pos+1)%FREQ_ARR_SIZE]);
+			alt_up_pixel_buffer_dma_draw_line(pixel_buf, xPos,  yPos1,xPos+xStep, yPos2, 0xFFFF, 0);
+
+
+
+
+			//Draw the ROC Graph
+			yPos1 = calculateROCYpos(roc_list[(i+start_pos)%FREQ_ARR_SIZE]);
+			yPos2 =	calculateROCYpos(roc_list[(i+start_pos+1)%FREQ_ARR_SIZE]);
+			alt_up_pixel_buffer_dma_draw_line(pixel_buf, xPos, yPos1,xPos+xStep, yPos2, 0xFFFF, 0);
+
+
 		}
-		if(current_freq < MIN_GRAPH_FREQ){
-			current_freq = MIN_GRAPH_FREQ;
-		}
+		else{
 
-		unsigned int yPos = calculateFreqYpos(current_freq);
+			//Draw the frequency graph
+			int yPos = calculateFreqYpos(freq_list[(i+start_pos)%FREQ_ARR_SIZE]);
+			alt_up_pixel_buffer_dma_draw_hline(pixel_buf, xPos, xPos+xStep, yPos, 0xFFFF, 0);
 
-		alt_up_pixel_buffer_dma_draw_hline(pixel_buf, xPos, xPos+xStep, yPos, 0xFFFF, 0);
+			//Draws vertical line between last line and current
+			if(i > 0){
+				alt_up_pixel_buffer_dma_draw_vline(pixel_buf, xPos, yPos, calculateFreqYpos(freq_list[(i-1+start_pos)%FREQ_ARR_SIZE]), 0xFFFF, 0);
+			}
 
-		//Draws vertical line between last line and current
-		if(i > 0){
-			alt_up_pixel_buffer_dma_draw_vline(pixel_buf, xPos, yPos, calculateFreqYpos(freq_list[i-1]), 0xFFFF, 0);
+
+			//Draw the ROC Graph
+			yPos = calculateROCYpos(roc_list[(i+start_pos)%FREQ_ARR_SIZE]);
+
+			alt_up_pixel_buffer_dma_draw_hline(pixel_buf, xPos, xPos+xStep, yPos, 0xFFFF, 0);
+
+			//Draws vertical line between last line and current
+			if(i > 0){
+				alt_up_pixel_buffer_dma_draw_vline(pixel_buf, xPos, yPos, calculateROCYpos(roc_list[(i-1+start_pos)%FREQ_ARR_SIZE]), 0xFFFF, 0);
+			}
+
 		}
 		xPos += xStep;
 	}
@@ -110,8 +168,4 @@ void drawSystemUptime(unsigned int seconds)
 	sprintf(uptimeString, "%.2dD %.2dH %.2dM %.2dS", days, hours, minutes, seconds);
 	alt_up_char_buffer_string(char_buf, uptimeString, 62, 57);
 }
-void drawTest(){
-	alt_up_char_buffer_draw(char_buf, TEST, 10, 10);
-	alt_up_char_buffer_draw(char_buf, TEST+1, 11, 11);
-	TEST++;
-}
+
