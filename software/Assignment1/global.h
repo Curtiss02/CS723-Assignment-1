@@ -1,1 +1,0 @@
-#define FREQ_ARR_SIZE 100
