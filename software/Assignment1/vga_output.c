@@ -45,6 +45,7 @@ void initVGA(){
 			}
 
 		alt_up_char_buffer_clear(char_buf);
+		drawBackground();
 }
 
 void drawBackground(){
@@ -88,6 +89,7 @@ int calculateFreqYpos(float freqval){
 	}
 	return (int)(FREQ_GRAPH_Y+FREQ_GRAPH_HEIGHT)-((freqval-MIN_GRAPH_FREQ)*FREQ_GRAPH_Y_RES);
 }
+
 int calculateROCYpos(float roc_val){
 	if(roc_val > ROC_GRAPH_MAX){
 		roc_val = ROC_GRAPH_MAX;
@@ -100,6 +102,7 @@ int calculateROCYpos(float roc_val){
 
 
 #define INTERPOLATE 1
+
 
 void drawGraphs(float* freq_list, float* roc_list, int start_pos){
 
