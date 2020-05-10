@@ -150,7 +150,6 @@ C_SRCS += FreeRTOS/port.c
 C_SRCS += FreeRTOS/queue.c
 C_SRCS += FreeRTOS/tasks.c
 C_SRCS += FreeRTOS/timers.c
-C_SRCS += freertos_semaphore.c
 C_SRCS += main.c
 C_SRCS += vga_output.c
 CXX_SRCS :=
