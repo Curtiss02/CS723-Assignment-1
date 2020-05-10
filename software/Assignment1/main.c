@@ -59,9 +59,9 @@ typedef struct timing_params{
 
 
 // Function Prototypes
-void ISR_FreqReceived(void* context, alt_u32 id);
-void ISR_KeyInputReceived(void* context, alt_u32 id);
-void ISR_EnableMaintenanceMode(void* context, alt_u32 id);
+void ISRFreqReceived(void* context, alt_u32 id);
+void ISRKeyInputReceived(void* context, alt_u32 id);
+void ISREnableMaintenanceMode(void* context, alt_u32 id);
 
 void TaskStabilityMonitor();
 void TaskLoadControl();
@@ -129,7 +129,7 @@ TickType_t gUnstableInitialTick;
 
 
 
-void ISR_FreqReceived(void* context, alt_u32 id)
+void ISRFreqReceived(void* context, alt_u32 id)
 {
 	#define SAMPLING_FREQ 16000.0
 	float hz= SAMPLING_FREQ/(float)IORD(FREQUENCY_ANALYSER_BASE, 0);
@@ -143,7 +143,7 @@ void ISR_FreqReceived(void* context, alt_u32 id)
 	xQueueSendToBackFromISR(qFreqReceived, &hz, pdFALSE );
 }
 
-void ISR_KeyInputReceived(void* context, alt_u32 id)
+void ISRKeyInputReceived(void* context, alt_u32 id)
 {
 	  char ascii;
 	  int status = 0;
@@ -186,7 +186,7 @@ void ISR_KeyInputReceived(void* context, alt_u32 id)
 	  }
 }
 
-void ISR_EnableMaintenanceMode(void* context, alt_u32 id)
+void ISREnableMaintenanceMode(void* context, alt_u32 id)
 {
 	  int _keyval = IORD_ALTERA_AVALON_PIO_EDGE_CAP(PUSH_BUTTON_BASE) & 0x4;
 	  if(_keyval){
@@ -604,7 +604,7 @@ void initKeyboard(){
 
 	  alt_up_ps2_clear_fifo (ps2_device) ;
 	  set_keyboard_rate(ps2_device, 0xFF);
-	  alt_irq_register(PS2_IRQ, ps2_device, ISR_KeyInputReceived);
+	  alt_irq_register(PS2_IRQ, ps2_device, ISRKeyInputReceived);
 	  // register the PS/2 interrupt
 	  IOWR_8DIRECT(PS2_BASE,4,1);
 }
@@ -613,7 +613,7 @@ void initPushButtonISR(){
 	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(PUSH_BUTTON_BASE, 0x7);
 	//Activate interupt for only BTN_3
 	IOWR_ALTERA_AVALON_PIO_IRQ_MASK(PUSH_BUTTON_BASE, 0x4);
-	alt_irq_register(PUSH_BUTTON_IRQ, NULL , ISR_EnableMaintenanceMode);
+	alt_irq_register(PUSH_BUTTON_IRQ, NULL , ISREnableMaintenanceMode);
 }
 
 // This function creates the queues and semaphores
@@ -704,7 +704,7 @@ void initTasks(void)
 
 void initISR(){
 	//register frequency analyser ISR
-	alt_irq_register(FREQUENCY_ANALYSER_IRQ, 0, ISR_FreqReceived);
+	alt_irq_register(FREQUENCY_ANALYSER_IRQ, 0, ISRFreqReceived);
 	initKeyboard();
 	initPushButtonISR();
 
