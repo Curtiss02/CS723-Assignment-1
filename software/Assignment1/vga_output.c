@@ -5,7 +5,7 @@ alt_up_pixel_buffer_dma_dev *pixel_buf;
 alt_up_char_buffer_dev *char_buf;
 char uptimeString[15];
 char thresholdString[35];
-char timingBuffer[20];
+char timingBuffer[40];
 //Contants for frequency graph
 #define FREQ_GRAPH_HEIGHT 140
 #define FREQ_GRAPH_WIDTH 500
@@ -52,9 +52,12 @@ void initVGA(){
 void drawBackground(){
 
 
+
 	alt_up_pixel_buffer_dma_clear_screen(pixel_buf, 0);
 	//Outer Rectangle
 	alt_up_pixel_buffer_dma_draw_rectangle(pixel_buf, 0, 0, 630, 470, 0xFF, 0); //(pixel_buf, )
+
+	alt_up_char_buffer_string(char_buf, "COMPSYS 723 GROUP 24", 1, 1);
 
 	//Freq Graph
 	alt_up_pixel_buffer_dma_draw_rectangle(pixel_buf, FREQ_GRAPH_X, FREQ_GRAPH_Y, FREQ_GRAPH_X+FREQ_GRAPH_WIDTH, FREQ_GRAPH_Y+FREQ_GRAPH_HEIGHT, 0xFF, 0);
@@ -179,8 +182,31 @@ void drawThresholds(float instant, float roc)
 	alt_up_char_buffer_string(char_buf, "LOAD SHEDDING THRESHOLD", 50, 1);
 }
 void drawTimings(int avg, int min, int max, int* history, int pos){
-	sprintf(timingBuffer, "MIN: %4.1f MAX: %4.1f AVG: %4.1f", (float)min  /1000, (float) max / 1000, (float)avg / 1000);
-	alt_up_char_buffer_string(char_buf, timingBuffer, 1, 57);
+	if(min == INT_MAX){
+		min = 0;
+	}
+	float min_ms = (float)min  /1000;
+	float max_ms = (float) max / 1000;
+	float avg_ms = (float)avg / 1000;
+	int i;
+	//Display past 5 readings
+	float temp;
+
+	alt_up_char_buffer_string(char_buf, "TIMINGS (MS)", 4, 57-12);
+	for(i = 0; i < 5; i++){
+		int arr_pos = (i+pos)%5;
+		temp = (float)history[arr_pos] / 1000;
+		sprintf(timingBuffer, "%d: %4.2f", 5-i, temp);
+		alt_up_char_buffer_string(char_buf, timingBuffer, 1, 57-i*2);
+	}
+
+	alt_up_char_buffer_string(char_buf, "HISTORY", 1, 57-10);
+	sprintf(timingBuffer, "AVG: %4.2f",avg_ms);
+	alt_up_char_buffer_string(char_buf, timingBuffer, 11, 57-10);
+	sprintf(timingBuffer, "MIN: %4.2f",min_ms);
+	alt_up_char_buffer_string(char_buf, timingBuffer, 11, 57-8);
+	sprintf(timingBuffer, "MAX: %4.2f",max_ms);
+	alt_up_char_buffer_string(char_buf, timingBuffer, 11, 57-6);
 
 }
 

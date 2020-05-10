@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <math.h>
 
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -22,13 +23,7 @@
 
 
 // Defines
-#define PARAM_INITIAL_INSTANT_THRES 	50.0
-#define PARAM_INITIAL_RATE_THRES 		99.0
 
-#define PARAM_UNSTABLE_DELAY			500 // shed subsequent loads after 500ms
-#define PARAM_STABLE_DELAY				500 // re-introduce loads after 500ms
-
-#define PARAM_NUM_LOADS					5 	// number of loads (switches) in use
 
 #define TIMESTAMP_FREQ 100000000
 #define TIMESTAMP_TO_US_DIV 100
@@ -355,7 +350,7 @@ void TaskLoadControl()
 			}
 			
 			if(gLoadShedTimer && gLoadShedding){
-				int time = alt_timestamp()/TIMESTAMP_TO_US_DIV;
+				int time = (long)((alt_timestamp())/TIMESTAMP_TO_US_DIV);
 				HelperAddNewTiming(time);
 				gLoadShedTimer = false;
 			}
@@ -585,8 +580,9 @@ void HelperAddNewTiming(int timing){
 	//Moving Average, add sub oldest add newest from sum
 	gTimingInfo.sum = gTimingInfo.sum + timing - gTimingInfo.history[gTimingInfo.history_pos];
 	gTimingInfo.avg = gTimingInfo.sum / 5;
+
 	gTimingInfo.history[gTimingInfo.history_pos] = timing;
-	gTimingInfo.history_pos = (gTimingInfo.history_pos) + 1 % 5;
+	gTimingInfo.history_pos = (gTimingInfo.history_pos + 1) % 5;
 }
 
 
@@ -627,8 +623,10 @@ void initDataStructs(void)
 	gParams.rate_threshold = PARAM_INITIAL_RATE_THRES;
 
 	//Init the timing info;
-	gTimingInfo.avg = 0;
 
+
+
+	gTimingInfo.avg = 0;
 	int i;
 	for(i = 0; i < 5; i++){
 		gTimingInfo.history[i] = 0;
