@@ -4,7 +4,8 @@
 alt_up_pixel_buffer_dma_dev *pixel_buf;
 alt_up_char_buffer_dev *char_buf;
 char uptimeString[15];
-
+char thresholdString[35];
+char timingBuffer[20];
 //Contants for frequency graph
 #define FREQ_GRAPH_HEIGHT 140
 #define FREQ_GRAPH_WIDTH 500
@@ -170,5 +171,16 @@ void drawSystemUptime(unsigned int seconds)
 
 	sprintf(uptimeString, "%.2dD %.2dH %.2dM %.2dS", days, hours, minutes, seconds);
 	alt_up_char_buffer_string(char_buf, uptimeString, 62, 57);
+}
+void drawThresholds(float instant, float roc)
+{
+	sprintf(thresholdString, "INSTANT: %4.1f  ROC: %4.1f", instant, roc);
+	alt_up_char_buffer_string(char_buf, thresholdString, 50, 2);
+	alt_up_char_buffer_string(char_buf, "LOAD SHEDDING THRESHOLD", 50, 1);
+}
+void drawTimings(int avg, int min, int max, int* history, int pos){
+	sprintf(timingBuffer, "MIN: %4.1f MAX: %4.1f AVG: %4.1f", (float)min  /1000, (float) max / 1000, (float)avg / 1000);
+	alt_up_char_buffer_string(char_buf, timingBuffer, 1, 57);
+
 }
 
