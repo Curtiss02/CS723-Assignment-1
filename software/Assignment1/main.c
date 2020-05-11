@@ -97,7 +97,7 @@ QueueHandle_t qLoadControl;
 QueueHandle_t qCharReceived;
 
 /* Semaphores */
-SemaphoreHandle_t xFrequencies;
+SemaphoreHandle_t xSystemStatus;
 
 
 /* Global vars */
@@ -168,10 +168,8 @@ void ISRKeyInputReceived(void* context, alt_u32 id)
 	        	else{
 	        		gKeyDown = true;
 	        		gLastKeyPressed = ascii;
+	        		xQueueSendToBackFromISR(qCharReceived, &ascii, pdFALSE );
 
-	        		if(xQueueSendToBackFromISR(qCharReceived, &ascii, pdFALSE ) == pdPASS){
-	        			printf("SENT CHAR: %c\n", ascii);
-	        		}
 
 	        	}
 	        }
@@ -179,7 +177,6 @@ void ISRKeyInputReceived(void* context, alt_u32 id)
 
 	        break ;
 	      default :
-	        printf ( "DEFAULT   : %c\n", ascii ) ;
 	        break ;
 	    }
 
@@ -230,19 +227,12 @@ void TaskStabilityMonitor()
 				float _instant = gHistoryFreq[_historyEndPos];
 				float _rate = fabs(gHistoryROC[_historyEndPos]);
 
-/*
-				printf("TASK :: TaskStabilityMonitor Received Message\n");
-				fflush(stdout);
-				printf("     :: index 0: %f, index1: %f\n", _instant, _rate);
-				fflush(stdout);*/
+
 
 				if(_instant < gParams.instant_threshold || _rate > gParams.rate_threshold)
 				{
 					// If not running already, start unstable timer on unstable behavior
-/*
-					printf("     :: THRESHOLD TRIGGERED \n");
-					fflush(stdout);
-*/
+
 
 					// If moving into load-shedding mode
 					// Set up variables and instantly shed first load
@@ -250,12 +240,13 @@ void TaskStabilityMonitor()
 					{
 						int i;
 						for(i = 0; i < PARAM_NUM_LOADS; i++) {
-
+							xSemaphoreTake(xSystemStatus, portMAX_DELAY);
 							gSystemStatusEntry[i] = gSystemStatus[i];
+							xSemaphoreGive(xSystemStatus);
 						}
 
 						gLoadShedding = true;
-/*						printf("--------------------------------------------------------------------------------------------\n");*/
+
 						HelperLoadDisconnect();
 						bool msg = true;
 						xQueueSend(qLoadControl, (void *)&msg, 0);
@@ -280,8 +271,6 @@ void TaskStabilityMonitor()
 					int tickTimer = (xTaskGetTickCount()-gUnstableInitialTick)*portTICK_PERIOD_MS;
 
 					if(tickTimer >= PARAM_UNSTABLE_DELAY) {
-/*						printf(">>>>>>>>>>> UNSTABLE :: %i <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n", tickTimer);
-						fflush(stdout);*/
 
 						// Do subsequent load shedding
 						HelperLoadDisconnect();
@@ -296,8 +285,7 @@ void TaskStabilityMonitor()
 					int tickTimer = (xTaskGetTickCount()-gStableInitialTick)*portTICK_PERIOD_MS;
 
 					if(tickTimer >= PARAM_STABLE_DELAY) {
-/*						printf(">>>>>>>>>>> STABLE :: %i   <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n", tickTimer);
-						fflush(stdout);*/
+
 
 						// Do re-introduction of load
 						HelperLoadReconnect();
@@ -324,20 +312,18 @@ void TaskLoadControl()
 
 		if((bool)msg == true)
 		{
-/*			printf("TASK :: TaskLoadControl Received Message\n");
-			fflush(stdout);
-			printf("     :: index 0: %f, index1: %f\n", gHistoryFreq[gHistoryStartPos], gHistoryROC[gHistoryStartPos]);
-			fflush(stdout);*/
+
 
 			int i;
 			int _systemStatus = 0;
 			int _systemStatusEntry = 0;
 
+			taskENTER_CRITICAL();
 			for(i = 0; i < PARAM_NUM_LOADS; i++){
 				_systemStatus |=  ((int)gSystemStatus[i]) << i;
 				_systemStatusEntry |= ((int)gSystemStatusEntry[i]) << i;
 			}
-			
+			taskEXIT_CRITICAL();
 
 
 			if(!gLoadShedding){
@@ -379,7 +365,7 @@ void TaskSwitchPolling()
 		}
 
 		// If currently in load shedding mode
-
+		xSemaphoreTake(xSystemStatus, portMAX_DELAY);
 		if(gLoadShedding) {
 			for(i = 0; i < PARAM_NUM_LOADS; i++) {
 				// Disable load, and ensure it won't be re-enabled by `HelperLoadReconnect()`
@@ -392,7 +378,7 @@ void TaskSwitchPolling()
 				gSystemStatus[i] = _loadSwitchStatus[i];
 			}
 		}
-
+		xSemaphoreGive(xSystemStatus);
 
 
 		// Run load control task for every switch poll update
@@ -416,8 +402,11 @@ void TaskUpdateThresholds(){
 
 	while(1){
 
+		if(gManagingLoads){
+			_keyCounter = 0;
+		}
 		xQueueReceive(qCharReceived, &_msg, portMAX_DELAY);
-		printf("RECEIVED CHAR: %c\n", _msg);
+
 		if(!gManagingLoads && !gLoadShedding){
 			switch(_keyCounter){
 				case 0:
@@ -448,9 +437,6 @@ void TaskUpdateThresholds(){
 					break;
 			}
 		}
-		else{
-			_keyCounter = 0;
-		}
 
 
 
@@ -464,14 +450,27 @@ void TaskUpdateVGA()
 {
 
 
+	float _historyFreq[FREQ_ARR_SIZE];
+	float _historyROC[FREQ_ARR_SIZE];
+	int _historyStartPos;
+
 	while (1)
 	{
 
+		//Copy in arrays so that datat does nto change while running
+		taskENTER_CRITICAL();
+		_historyStartPos = gHistoryStartPos;
+		int i;
+		for(i = 0; i < FREQ_ARR_SIZE; i++){
+			_historyFreq[i] = gHistoryFreq[i];
+			_historyROC[i] = gHistoryROC[i];
+		}
+		taskEXIT_CRITICAL();
+
 		drawSystemUptime(xTaskGetTickCount()/1000);
-		drawGraphs(gHistoryFreq, gHistoryROC, gHistoryStartPos);
+		drawGraphs(_historyFreq, _historyROC, _historyStartPos);
 		drawThresholds(gParams.instant_threshold , gParams.rate_threshold);
 		drawTimings(gTimingInfo.avg, gTimingInfo.min, gTimingInfo.max, gTimingInfo.history, gTimingInfo.history_pos);
-		//printf("Current Timestamp MS: %d\n", alt_timestamp()/TIMESTAMP_TO_MS_DIV);
 		vTaskDelay(taskUpdateVGA);
 
 	}
@@ -489,7 +488,9 @@ void HelperLoadDisconnect()
 	{
 		if(gSystemStatus[i])
 		{
+			xSemaphoreTake(xSystemStatus, portMAX_DELAY);
 			gSystemStatus[i] = false;
+			xSemaphoreGive(xSystemStatus);
 			return;
 		}
 	}
@@ -504,9 +505,9 @@ void HelperLoadReconnect()
 		// If load currently disabled, but was enabled before load shedding
 		if(!gSystemStatus[i] && gSystemStatusEntry[i])
 		{
+			xSemaphoreTake(xSystemStatus, portMAX_DELAY);
 			gSystemStatus[i] = true;
-
-
+			xSemaphoreGive(xSystemStatus);
 
 			break;
 		}
@@ -654,8 +655,8 @@ void initDataStructs(void)
 	gHistoryStartPos = 0;
 
 	/* Semaphores */
-	xFrequencies = xSemaphoreCreateBinary();
-	if (xFrequencies == 0)
+	xSystemStatus = xSemaphoreCreateMutex();
+	if (xSystemStatus == 0)
 		fputs("Could not create semaphores xFrequencies", stderr);
 
 	/* Queues */

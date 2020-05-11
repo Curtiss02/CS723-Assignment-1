@@ -113,16 +113,9 @@ int calculateROCYpos(float roc_val){
 #define INTERPOLATE 1
 
 
-float freq_list[FREQ_ARR_SIZE];
-float roc_list[FREQ_ARR_SIZE];
-void drawGraphs(float* freq_list_in, float* roc_list_in, int start_pos){
 
-	//Copy in arrays so that datat does nto change while running
-	int i;
-	for(i = 0; i < FREQ_ARR_SIZE; i++){
-		freq_list[i] = freq_list_in[i];
-		roc_list[i] = roc_list_in[i];
-	}
+void drawGraphs(float* freq_list, float* roc_list, int start_pos){
+
 
 	//Clear graph area
 	alt_up_pixel_buffer_dma_draw_box(pixel_buf, FREQ_GRAPH_X+1, FREQ_GRAPH_Y+1, FREQ_GRAPH_X+FREQ_GRAPH_WIDTH-1, FREQ_GRAPH_Y+FREQ_GRAPH_HEIGHT-1 ,0,0);
@@ -130,7 +123,7 @@ void drawGraphs(float* freq_list_in, float* roc_list_in, int start_pos){
 
 	int xPos = FREQ_GRAPH_X;
 	int xStep = FREQ_GRAPH_WIDTH/FREQ_ARR_SIZE;
-
+	int i;
 
 	for(i = 0; i < FREQ_ARR_SIZE-1; i++){
 		if(INTERPOLATE == 1)
