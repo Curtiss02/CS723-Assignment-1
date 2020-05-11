@@ -21,16 +21,16 @@ char timingBuffer[40];
 #define ROC_GRAPH_WIDTH 500
 #define ROC_GRAPH_X 75
 #define ROC_GRAPH_Y 210
-#define ROC_GRAPH_Y_RES 7
-#define ROC_GRAPH_MAX 10
-#define ROC_GRAPH_MIN -10
+#define ROC_GRAPH_Y_RES 5
+#define ROC_GRAPH_MAX 14
+#define ROC_GRAPH_MIN -14
 
 
 
 
 
 int calculateFreqYpos(float freqval);
-
+int calculateROCYpos(float roc_val);
 
 void initVGA(){
 		pixel_buf = alt_up_pixel_buffer_dma_open_dev(VIDEO_PIXEL_BUFFER_DMA_NAME);
@@ -78,7 +78,12 @@ void drawBackground(){
 	}
 
 	//Hz Range 0-70, hence 140 height
-
+	for(i = 10; i >= -10;  i-= 5){
+		int yPos = calculateROCYpos(i);
+		alt_up_pixel_buffer_dma_draw_hline(pixel_buf, ROC_GRAPH_X - 10, ROC_GRAPH_X, yPos, 0xFF, 0);
+		sprintf(buffer, "%d", i);
+		alt_up_char_buffer_string(char_buf, buffer, ROC_GRAPH_X/8 - 4, yPos/8 );
+	}
 
 }
 int calculateFreqYpos(float freqval){
@@ -108,7 +113,16 @@ int calculateROCYpos(float roc_val){
 #define INTERPOLATE 1
 
 
-void drawGraphs(float* freq_list, float* roc_list, int start_pos){
+float freq_list[FREQ_ARR_SIZE];
+float roc_list[FREQ_ARR_SIZE];
+void drawGraphs(float* freq_list_in, float* roc_list_in, int start_pos){
+
+	//Copy in arrays so that datat does nto change while running
+	int i;
+	for(i = 0; i < FREQ_ARR_SIZE; i++){
+		freq_list[i] = freq_list_in[i];
+		roc_list[i] = roc_list_in[i];
+	}
 
 	//Clear graph area
 	alt_up_pixel_buffer_dma_draw_box(pixel_buf, FREQ_GRAPH_X+1, FREQ_GRAPH_Y+1, FREQ_GRAPH_X+FREQ_GRAPH_WIDTH-1, FREQ_GRAPH_Y+FREQ_GRAPH_HEIGHT-1 ,0,0);
@@ -116,7 +130,7 @@ void drawGraphs(float* freq_list, float* roc_list, int start_pos){
 
 	int xPos = FREQ_GRAPH_X;
 	int xStep = FREQ_GRAPH_WIDTH/FREQ_ARR_SIZE;
-	int i;
+
 
 	for(i = 0; i < FREQ_ARR_SIZE-1; i++){
 		if(INTERPOLATE == 1)

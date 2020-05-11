@@ -1,5 +1,5 @@
 //Global params
-#define FREQ_ARR_SIZE 100
+#define FREQ_ARR_SIZE 50
 #define PARAM_INITIAL_INSTANT_THRES 	50.0
 #define PARAM_INITIAL_RATE_THRES 		99.0
 
