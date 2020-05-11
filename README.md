@@ -1,6 +1,6 @@
 # COMPSYS 723 Assignment 1 - Load Control System
 
-Import the root directory as an existing project into your workspace, making sure to include both projects (`Assignment1` and `Assignment1_bsp`). This should import both the assignment project as well as the BSP. The BSP has only been modified to allow TIMER1_US to be used as the timestamp timer.
+Import the root directory as an existing project into your NIOS II workspace, making sure to include both projects (`Assignment1` and `Assignment1_bsp`). This should import both the assignment project as well as the BSP. The BSP has only been modified to allow TIMER1_US to be used as the timestamp timer.
 
 SW4-SW0 simulate the switches for the loads, with LEDR4-LEDR0 representing the system output for each loud respectively. LEDG4-LEDG0 represent whether a load has currently been switched off by the load management system.
 
